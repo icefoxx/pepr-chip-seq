@@ -2,7 +2,7 @@
 # initialize libraries.
 import numpy
 import logging
-from class_def import Peak
+from classDef import Peak
 from scipy.stats.distributions import poisson
 from scipy.special import psi
 from scipy.optimize import fsolve
@@ -64,7 +64,7 @@ def cal_FDR(peak_list,num_tests):
 	peak_list = sorted(peak_list, key=attrgetter('chr','index'))
 	return peak_list
 
-def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_peak=False,threshold=1e-5,windowSize=200):
+def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_peak=False,threshold=1e-5,windowsize=200):
 	#the main function that test for significant windows. 
 
 	read_dict = readData.reads_dict 
@@ -72,7 +72,7 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 	chr_list = readData.chr_list
 	chip_list = readData.chip_filename_list
 	control_list = readData.control_filename_list
-	num_tests = readData.genomeSize/windowSize
+	num_tests = readData.genomeSize/windowsize
 	peakfile = open(peakfilename,'w')
 
 	#compute number of replicates
@@ -95,7 +95,7 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 		# setting the minimum # of reads in each window to 1 so that they won't have arithmetic errors. 
 	
 		cand_index = get_candidate_window(x_bar_array,y_bar_array,threshold)  # define a window as candidate if its Poisson p-value is smaller than the threshold. 
-		debug("there are %d candidate windows",len(cand_index))
+		debug("there are %d candidate windows for %s",len(cand_index),chr)
 		debug("begin estimating dispersion parameters")
 		disp_list = numpy.array([cal_area_dispersion_factor(read_array, chip_rep, control_rep, idx) for idx in cand_index]) #for all candidate windows, calculate the dispersion parameters. 
 		debug("finished estimating dispersion")
@@ -114,7 +114,7 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 		# write the poisson output files. for debugging purposes. 
 #                file2 = open(chr+".poisson",'w')
 #                for i,idx in enumerate(sig_index):
-#                        file2.write(str(idx *windowSize/2)+'\t'+str(idx*windowSize/2+windowSize)+'\t')
+#                        file2.write(str(idx *windowsize/2)+'\t'+str(idx*windowsize/2+windowsize)+'\t')
 #                        read = read_array[idx]
 #                        for item in read:
 #                                file2.write(str(item)+'\t')
@@ -126,7 +126,6 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 		sig_index = cand_index[test_index]
 		sig_pval = pval_array[test_index]
 		sig_disp = disp_list[test_index]
-		debug("finished calculating pvalues")
 		for i,a in enumerate(test_index):
 			sig_peaks_list.append(Peak(chr,sig_index[i],sig_pval[i],0))
 
@@ -145,7 +144,7 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 			
 		if peaktype =="sharp":
 			for idx in xrange(len(sig_start)):
-				decision = shift_size_per_peak(strands_dict, chip_list, chr, sig_start[idx]*windowSize/2, sig_end[idx]*windowSize/2+windowSize,readData.shiftSize,readData.readLength,narrow_peak)
+				decision = shift_size_per_peak(strands_dict, chip_list, chr, sig_start[idx]*windowsize/2, sig_end[idx]*windowsize/2+windowsize,readData.shiftSize,readData.readLength,narrow_peak)
 				if (decision==-1):
 					continue   #skip this iteration; means that this peak is skipped and not reported in the final peak list. 
 				start,end,shift_list,foldc = decision
@@ -160,7 +159,7 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 
 		elif peaktype == "broad":
 			for idx in xrange(len(sig_start)):
-				peakfile.write(chr+"\t"+str(sig_start[idx]*windowSize/2)+'\t'+str(sig_end[idx]*windowSize/2+windowSize)+'\t'+str((sig_end[idx]-sig_start[idx])*windowSize/2+windowSize)+'\t')
+				peakfile.write(chr+"\t"+str(sig_start[idx]*windowsize/2)+'\t'+str(sig_end[idx]*windowsize/2+windowsize)+'\t'+str((sig_end[idx]-sig_start[idx])*windowsize/2+windowsize)+'\t')
 				peakfile.write(str(sig_pval[idx])+'\t'+str(sig_qval[idx])+'\n')
 	
 	return

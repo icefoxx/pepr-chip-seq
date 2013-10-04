@@ -1,5 +1,5 @@
 from optparse import OptionParser
-from class_def import ReadData
+from classDef import ReadData
 
 
 def optParser(argv):

@@ -120,7 +120,7 @@ def estimate_window_size(readData,opt):
 	return window_median 
 
 
-def separate_exact_by_window(readData,windowSize,normalize = "Small"):
+def separate_exact_by_window(readData,windowSize,normalize = "Large"):
 	data_by_window_dict = {}
 	index_dict = {}
 	scale_dict = {}

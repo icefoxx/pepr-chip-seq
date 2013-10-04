@@ -1,0 +1,29 @@
+
+
+
+2012-10-09 Yanxiao Zhang <yanxiazh@umich.edu>
+	* Version 1.0
+	* sigTests.py: Added optional post-processing steps: (1) Estimating the shift size for every peak and remove peaks that have shift size less than 5bp+readlength (2) refine the peak boundary to minimally contain the  core region that are warranted by reads. 
+	* Cleaned deprecated functions. 	
+
+2012-9-28 Yanxiao Zhang <yanxiazh@umich.edu>
+	*  sigTests.py: Revised the dispersion parameter estiamtion method to leverage the local information to increase the precision of estiamtion. Deleted the code from edgeR. 
+
+
+2012-3-19 Yanxiao Zhang <yanxiazh@umich.edu>
+	* windowsize.py: New window size estiamtion method 
+
+	* shiftsize.py: New shift size estiamtion method 
+
+	* sigTests.py: Using the log transformed wald test instead of the original wald test. 
+
+	* clasDef.py: Added function to estimate and remove redundant reads. 
+
+2012-1-24 Yanxiao Zhang <yanxiazh@umich.edu> 
+	* genomeData.py: Added support to genome build mm9, dm3
+
+2011-10-25 Yanxiao Zhang <yanxiazh@umich.edu> 
+	* The first draft version of the program. 
+	* classDef.py, fileParser.py, genomeData.py, logConfig.py, misc.py, optParser.py, PePr.py, shiftSize.py, sigTests.py, windowSize.py: files created
+
+

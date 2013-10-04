@@ -3,7 +3,7 @@ import misc
 import logging
 import logConfig
 import optParser
-import file_parser
+import fileParser
 import numpy
 
 
@@ -104,7 +104,7 @@ def main(argv):
 	optParser.validateOpt(opt)
 	readData = opt.read_data
 	## read in the data
-	file_parser.parse(readData, opt.fileFormat)
+	fileParser.parse(readData, opt.fileFormat)
 
 	## remove the redundant reads
 	if (opt.remove_redundant):

@@ -1,4 +1,4 @@
-import GenomeData
+import genomeData
 import logging
 import misc
 
@@ -15,7 +15,7 @@ class ReadData:
 		self.chip_filename_list = chip
 		self.control_filename_list = control
 		self.filename_list =chip+control
-		self.chr_list, self.chr_length_dict = GenomeData.species_match(sp)
+		self.chr_list, self.chr_length_dict = genomeData.species_match(sp)
 		self.read_total_per_file = {}
 		self.genomeSize = 0
 		self.shiftSize = {}
