@@ -64,7 +64,7 @@ def cal_FDR(peak_list,num_tests):
 	peak_list = sorted(peak_list, key=attrgetter('chr','index'))
 	return peak_list
 
-def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_peak=False,threshold=1e-5,windowsize=200):
+def negative_binomial(readData,peakfilename,peaktype,swap=False,remove_shift=False,narrow_peak=False,threshold=1e-5,windowsize=200):
 	#the main function that test for significant windows. 
 
 	read_dict = readData.reads_dict 
@@ -81,6 +81,10 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 	start1 = 0
 	end1 = start2 = chip_rep
 	end2 = chip_rep+control_rep
+	# if swap 
+	if swap: 
+		chip_rep,control_rep = control_rep,chip_rep
+		chip_list,control_list = control_list,chip_list
 
 	# initialize basic array structures
 	#sig_index_dict = {}
@@ -92,12 +96,17 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 		read_array[numpy.where(read_array ==0)] = 1 
 		y_bar_array = numpy.mean(read_array[:,start1:end1],1)
 		x_bar_array = numpy.mean(read_array[:,start2:end2],1)
+		if swap: #swap the chip and control reads. 
+			x_bar_array,y_bar_array = y_bar_array,x_bar_array
 		# setting the minimum # of reads in each window to 1 so that they won't have arithmetic errors. 
 	
 		cand_index = get_candidate_window(x_bar_array,y_bar_array,threshold)  # define a window as candidate if its Poisson p-value is smaller than the threshold. 
 		debug("there are %d candidate windows for %s",len(cand_index),chr)
 		debug("begin estimating dispersion parameters")
-		disp_list = numpy.array([cal_area_dispersion_factor(read_array, chip_rep, control_rep, idx) for idx in cand_index]) #for all candidate windows, calculate the dispersion parameters. 
+		if not swap: 
+			disp_list = numpy.array([cal_area_dispersion_factor(read_array, chip_rep, control_rep, idx) for idx in cand_index]) #for all candidate windows, calculate the dispersion parameters. 
+		else: 
+			disp_list = numpy.array([cal_area_dispersion_factor(read_array, control_rep, chip_rep, idx) for idx in cand_index])
 		debug("finished estimating dispersion")
 		cand_x_bar_array = x_bar_array[cand_index]
 		cand_y_bar_array = y_bar_array[cand_index]
@@ -138,8 +147,7 @@ def negative_binomial(readData,peakfilename,peaktype,remove_shift=False,narrow_p
 		sig_peak_list_by_chr = [item for item in sig_peaks_list if item.chr==chr]
 		sig_index = [item.index for item in sig_peak_list_by_chr]
 		sig_pval = [item.pvalue for item in sig_peak_list_by_chr]
-		sig_qval = [item.qvalue for item in sig_peak_list_by_chr]
-			 
+		sig_qval = [item.qvalue for item in sig_peak_list_by_chr]	 
 		sig_start,sig_end,sig_pval,sig_qval = merge_sig_window(sig_index,sig_pval,sig_qval,peaktype)
 			
 		if peaktype =="sharp":
