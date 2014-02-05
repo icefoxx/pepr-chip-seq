@@ -35,13 +35,19 @@ def main(argv):
 	windowSize.separate_exact_by_window(readData, windowsize) 
 
 	# del readData.data_dict ##could reduce the memory usage
+	if not opt.diff:
+		swap = False
+		peakfilename = opt.name+"__PePr_peaks.bed"
+		sigTests.negative_binomial(readData,peakfilename,opt.peaktype,swap,opt.remove_short_fragment,opt.narrow_peak_width,opt.threshold,windowsize)
+	else: 
+		up_peakfilename = opt.name+"__PePr_up_peaks.bed"
+		down_peakfilename = opt.name+"__PePr_down_peaks.bed"
+		swap = False
+		sigTests.negative_binomial(readData,up_peakfilename,opt.peaktype,swap,opt.remove_short_fragment,opt.narrow_peak_width,opt.threshold,windowsize)
+		swap = True
+		sigTests.negative_binomial(readData,down_peakfilename,opt.peaktype,swap,opt.remove_short_fragment,opt.narrow_peak_width,opt.threshold,windowsize)
+	#write to a file that record the command and parameters. 	
 
-	peakfilename = opt.name+"__peak_shift-"
-	for chip in readData.chip_filename_list:
-		peakfilename += str(readData.shiftSize[chip])+'.'
-	peakfilename = peakfilename[:-1]+"_window-"+str(windowsize)+"p-value-"+str(opt.threshold)
-	sigTests.negative_binomial(readData,peakfilename,opt.peaktype,opt.remove_short_fragment,opt.narrow_peak_width,opt.threshold,windowsize)
-#	area_disp.cal_shift_size_for_peak(readData,shiftSize)
 	
 if __name__ == '__main__':
 	try: main(sys.argv)

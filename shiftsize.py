@@ -37,32 +37,59 @@ def shift_size_per_chrom(forward, reverse,file=-1):
 def estimate_shift_size(readData,opt):
 	if opt.shiftSize != "-1": #if shift size provided by the user, then skip it.
 		shift_list = opt.shiftSize.split(',')
-		if len(shift_list) == len(readData.chip_filename_list):
-			for idx,chip in enumerate(readData.chip_filename_list):
-				readData.shiftSize[chip] = int(shift_list[idx])
-				info("%-10s %s",chip,shift_list[idx])
+		if len(shift_list)== 1:
+			for name in readData.filename_list: 
+				readData.shiftSize[name] = int(shift_list[0])
+				info("%-10s %s",name,shift_list[0])
 		else: 
-			for chip in readData.chip_filename_list:
-				readData.shiftSize[chip] = int(shift_list[0])
-				info("%-10s %s",chip,shift_list[0])
-		return
-
+			if opt.diff: 
+				for idx,name in enumerate(readData.filename_list):
+					readData.shiftSize[name] = int(shift_list[idx])
+					info("%-10s %s",name,shift_list[idx])
+			else: 
+				for idx,chip in enumerate(readData.chip_filename_list):
+					readData.shfitSize[chip] = int(shift_list[idx])
+					info("%-10s %s",chip,shift_list[idx])
+				for control in readData.control_filename_list:
+					readData.shiftSize[control] = sum(shift_list)/len(shift_list)
+					info("%-10s %s",control,sum(shift_list)/len(shift_list))
+		return 
 	info("begin estimating the shift size...")
-	for chip_filename in readData.chip_filename_list:
-		info("estimating for %-10s", chip_filename)
-		shift_list = []
+	if not opt.diff: #if it is test samples versus the control 
+		for chip_filename in readData.chip_filename_list:
+			info("estimating for %-10s", chip_filename)
+			shift_list = []
 
-		for count,chr in enumerate(readData.chr_list):
-			if count ==5:   #estimate the shift size for five chromosomes and take the median of these as the estimator. 
-				break
-			forward = readData.data_dict_by_strands[chr][chip_filename]['f']
-			reverse = readData.data_dict_by_strands[chr][chip_filename]['r']
-			shift = shift_size_per_chrom(forward,reverse)
-			info("%-10s %d", chr, shift)
-			shift_list.append(shift)
-		shift_median = misc.median(shift_list[:])
-		info("%-10s %d",chip_filename,shift_median)
-		readData.shiftSize[chip_filename] = shift_median
+			for count,chr in enumerate(readData.chr_list):
+				if count ==5:   #estimate the shift size for five chromosomes and take the median of these as the estimator. 
+					break
+				forward = readData.data_dict_by_strands[chr][chip_filename]['f']
+				reverse = readData.data_dict_by_strands[chr][chip_filename]['r']
+				shift = shift_size_per_chrom(forward,reverse)
+				info("%-10s %d", chr, shift)
+				shift_list.append(shift)
+			shift_median = misc.median(shift_list[:])
+			info("%-10s %d",chip_filename,shift_median)
+			readData.shiftSize[chip_filename] = shift_median
+		con_shift_size = sum(readData.shiftSize.values())/len(readData.shiftSize.values())
+		for control_filename in readData.control_filename_list: 
+			readData.shiftSize[control_filename] = con_shift_size
+			
+	else: #else, if we're calling differential binding. 
+		for filename in readData.filename_list: 
+			info("estimating for %-10s", filename)
+			shift_list = []
+			for count,chr in enumerate(readData.chr_list):
+				if count==5: 
+					break
+				forward = readData.data_dict_by_strands[chr][filename]['f']
+				reverse = readData.data_dict_by_strands[chr][filename]['r']
+				shift = shift_size_per_chrom(forward,reverse)
+				info("%-10s %d", chr, shift)
+				shift_list.append(shift)
+			shift_median = misc.median(shift_list[:])
+			info("%-10s %d",filename,shift_median)
+			readData.shiftSize[filename] = shift_median
 	return 
 
 	
@@ -71,22 +98,12 @@ def shift_reads(readData): #shift the reads according the specific shift size es
 	for chr in readData.chr_list:
 		debug("shifting the reads for %s...",chr)
 		readData.data_dict[chr] ={}
-		for file in readData.chip_filename_list:
+		for file in readData.filename_list:
 			forward=readData.data_dict_by_strands[chr][file]['f']
 			reverse=readData.data_dict_by_strands[chr][file]['r']
 			readData.data_dict_by_strands[chr][file]['f'] = numpy.array(readData.data_dict_by_strands[chr][file]['f'])
 			readData.data_dict_by_strands[chr][file]['r'] = numpy.array(readData.data_dict_by_strands[chr][file]['r'])
 			readData.data_dict[chr][file]=[x+readData.shiftSize[file] for x in forward]+[y-readData.shiftSize[file] for y in reverse]
-
-		con_shiftSize = sum(readData.shiftSize.values())/len(readData.shiftSize.values())
-
-		for file in readData.control_filename_list:
-                        forward=readData.data_dict_by_strands[chr][file]['f']
-                        reverse=readData.data_dict_by_strands[chr][file]['r']
-                        readData.data_dict_by_strands[chr][file]['f'] = numpy.array(readData.data_dict_by_strands[chr][file]['f'])
-                        readData.data_dict_by_strands[chr][file]['r'] = numpy.array(readData.data_dict_by_strands[chr][file]['r'])
-                        readData.data_dict[chr][file]=[x+con_shiftSize for x in forward]+[y-con_shiftSize for y in reverse]
-			
 
 #	return data_dict			
 

@@ -24,6 +24,9 @@ def optParser(argv):
 			 type="int",dest="windowSize",default=-1,
 			 help="If not provided, we'll will estimate it",
 			 metavar="WINDOWSIZE")
+	parser.add_option("--diff",action="store_true",
+			 dest = "diff",default=False,
+			 help="Whether to perform differential binding analysis")
 	parser.add_option("-n","--name",action = "store",
 			 type="string",dest="name",default = "NA",
 			 help = "the experimental name",
@@ -53,9 +56,10 @@ def validateOpt(opt):
 	if opt.control =="":
 		print " no control input detected"
 		exit(1)
+	opt.fileFormat = opt.fileFormat.lower()
 	if opt.fileFormat not in ['bed','eland_multi', 'eland_extended', 'bowtie', 'sam']:
-		raise Exception("file format input error")
-
+		raise Exception("invalid file format input")
+	
 	opt.peaktype = opt.peaktype.lower()
 	if opt.peaktype not in ['sharp','broad']:
 		raise Exception("please specify a peak type: sharp or broad. Typically, sharp works for TF better and broad for histone modifications.")
@@ -65,3 +69,12 @@ def validateOpt(opt):
 	control_filename_list=opt.control.strip().split(',')
 	## initialize the data structure
 	opt.read_data = ReadData(chip_filename_list,control_filename_list,opt.species)	
+	#add shift size validations
+	shift_list = opt.shiftSize.split(',')
+	if len(shift_list)!=1:
+		if opt.diff: 
+			if len(shift_list)==len(opt.read_data.filename_list):
+				raise Exception("invalid size input. Please check out the manual.")
+		else: 
+			if len(shift_list) == len(opt.read_data.chip_filename_list):
+				raise Exception("invalid shift size input. Please check out the manual.")	
