@@ -73,8 +73,8 @@ def validateOpt(opt):
 	shift_list = opt.shiftSize.split(',')
 	if len(shift_list)!=1:
 		if opt.diff: 
-			if len(shift_list)==len(opt.read_data.filename_list):
+			if len(shift_list)!=len(opt.read_data.filename_list):
 				raise Exception("invalid size input. Please check out the manual.")
 		else: 
-			if len(shift_list) == len(opt.read_data.chip_filename_list):
+			if len(shift_list) != len(opt.read_data.chip_filename_list):
 				raise Exception("invalid shift size input. Please check out the manual.")	

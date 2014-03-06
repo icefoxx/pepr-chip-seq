@@ -48,7 +48,7 @@ def estimate_shift_size(readData,opt):
 					info("%-10s %s",name,shift_list[idx])
 			else: 
 				for idx,chip in enumerate(readData.chip_filename_list):
-					readData.shfitSize[chip] = int(shift_list[idx])
+					readData.shiftSize[chip] = int(shift_list[idx])
 					info("%-10s %s",chip,shift_list[idx])
 				for control in readData.control_filename_list:
 					readData.shiftSize[control] = sum(shift_list)/len(shift_list)
