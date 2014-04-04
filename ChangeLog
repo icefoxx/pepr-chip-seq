@@ -1,3 +1,15 @@
+2014-04-01 Yanxiao Zhang <yanxiazh@umich.edu>
+        * Version 1.02
+        * Major changes: 
+            Added support for BAM format (requring pysam module);
+            Changed the normalization strategy (NCIS and modified TMM for input and ChIP samples respectively);
+            For differential analysis, will subtract input reads from ChIP reads after normalization;            Improved the peak-calling speed; 
+            No longer requires a pre-specified genome. 
+        * classDef.py: Added a new class Parameters.
+        * fileParser.py: Added BAM format parser. 
+        * sigTest.py: implemented a new method for estimating over-dispersion parameter.
+        * windowSize.py: Added new normalization: NCIS for input and modified TMM for ChIP samples.
+        * genomeData.py: Deleted. Chromosome and genome size will be established directly from the data. 
 
 2014-02-05 Yanxiao Zhang <yanxiazh@umich.edu> 
 	* Version 1.01

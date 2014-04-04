@@ -1,80 +1,98 @@
 from optparse import OptionParser
 from classDef import ReadData
+from classDef import Parameters
 
 
-def optParser(argv):
-	parser = OptionParser()
-	parser.add_option("-c","--chip",action="store",
-			 type="string",dest="chip",default="",
-			 help="chip file names separated by comma",metavar="CHIP")
-	parser.add_option("-i","--input",action="store",
-			 type="string",dest="control",default="",
-			 help="input/control file names separated by comma",metavar="INPUT")
-	parser.add_option("-f","--fileformat",action="store",
-			 type="string",dest="fileFormat",
-			 help="file formats: bed,eland_multi,eland_extended,sam,bowtie...", metavar="FORMAT")
-	parser.add_option("-g","--genome",action="store",
-			 type="string",dest="species",
-			 help="mm9,hg19,hg18,...",metavar="SPECIES")
-	parser.add_option("-s","--shiftsize",action="store",
-			 type="string", dest="shiftSize",default="-1",
-			 help="Half the fragment size. If not provided, we'll estimate it",
-			 metavar="SHIFTSIZE")
-	parser.add_option("-w","--windowsize",action="store",
-			 type="int",dest="windowSize",default=-1,
-			 help="If not provided, we'll will estimate it",
-			 metavar="WINDOWSIZE")
-	parser.add_option("--diff",action="store_true",
-			 dest = "diff",default=False,
-			 help="Whether to perform differential binding analysis")
-	parser.add_option("-n","--name",action = "store",
-			 type="string",dest="name",default = "NA",
-			 help = "the experimental name",
-			 metavar="NAME")
-	parser.add_option("-r","--remove_duplicate",action ="store_true",
-			 dest = "remove_redundant",default=False,
-			 help="Whether to remove duplicated reads")
-	parser.add_option("--threshold",action ="store",
-			 type='float',dest="threshold",default=1e-5)
-	parser.add_option("--peaktype",action="store",
-			 type="string",dest="peaktype",default="broad",
-			 help="sharp or broad.")
-	parser.add_option("--filter_short_fragment",action="store_true",
-			 dest="remove_short_fragment",default=False,
-			 help = "Whether to remove peaks that have estimated fragment size less than readLength+5. Only available for SHARP peak type")
-	parser.add_option("--narrow_peak_width",action="store_true",
-			 dest ="narrow_peak_width",default=False,
-			 help = "Whether to narrow peak width to contain the most enriched regions. Only available for SHARP peak type")
-	(opt,args)=parser.parse_args(argv)
+def opt_parser(argv):
+    parser = OptionParser()
+    parser.add_option(
+            "-p", "--parameter-file", action="store", type="string",
+            dest="parameter", default="", 
+            help="provide a file that contain the parameters",
+            metavar="PARAMETER-FILE")
+    parser.add_option(
+            "-c", "--chip1", action="store", type="string", dest="chip1",
+            default="", help="chip1 file names separated by comma",
+            metavar="CHIP1")
+    parser.add_option(
+            "-i", "--input1", action="store",
+            type="string", dest="input1", default="",
+            help="input1 file names separated by comma",
+            metavar="INPUT1")
+    parser.add_option(
+            "--chip2", action="store", type="string", dest="chip2",
+            default="", help="chip2 file names separated by comma",
+            metavar="CHIP2")
+    parser.add_option(
+            "--input2", action="store", type="string", dest="input2",
+            default="", help="input2 file names separated by comma",
+            metavar="INPUT2")
+    parser.add_option(
+            "-f", "--file-format", action="store", type="string", 
+            dest="file_format",
+            help="bed, eland_multi, eland_extended, sam, bowtie...",
+            metavar="FORMAT")
+    parser.add_option(
+            "-s", "--shiftsize", action="store",
+            type="string", dest="shift_size", default="-1",
+            help="Half the fragment size.", metavar="SHIFTSIZE")
+    parser.add_option(
+            "-w", "--windowsize", action="store",
+            type="int", dest="window_size", default=-1,
+            help="Window sizes",
+            metavar="WINDOWSIZE")
+    parser.add_option(
+            "--diff", action="store_true",
+            dest = "difftest", default=False,
+            help="Whether to perform differential binding analysis")
+    parser.add_option(
+            "-n", "--name", action = "store",
+            type="string", dest="name", default = "NA",
+            help = "the experimental name",
+            metavar="NAME")
+    parser.add_option(
+            "-r", "--remove_duplicate", action ="store_true",
+            dest = "remove_redundant", default=False,
+            help="Whether to remove duplicated reads")
+    parser.add_option(
+            "--threshold", action ="store",
+            type='float', dest="threshold", default=1e-5)
+    parser.add_option(
+            "--peaktype", action="store",
+            type="string", dest="peaktype", default="broad",
+            help="sharp or broad.")
+    parser.add_option(
+            "--remove_artefacts", action="store_true",
+            dest="remove_artefacts", default=False,
+            help = '''Whether to remove peaks that have the same shape 
+            as in the input samples.''')
+    parser.add_option(
+            "--narrow_peak_width", action="store_true",
+            dest ="narrow_peak_width", default=False,
+            help = '''Whether to narrow peak width to contain the most 
+            enriched regions. Only available for SHARP peak type''')
+    parser.add_option(
+            "--no_log", action="store_true",
+            dest = "unsave_log", default=False,
+            help = "Whether to disable saving the log files")
+    (opt, args)=parser.parse_args(argv)
 
-	return opt
+    return opt
 
-def validateOpt(opt):
-	if opt.chip =="":
-		print " no test input detected. Try \"PePr -h\" for help"
-		exit(1)
-	if opt.control =="":
-		print " no control input detected"
-		exit(1)
-	opt.fileFormat = opt.fileFormat.lower()
-	if opt.fileFormat not in ['bed','eland_multi', 'eland_extended', 'bowtie', 'sam']:
-		raise Exception("invalid file format input")
-	
-	opt.peaktype = opt.peaktype.lower()
-	if opt.peaktype not in ['sharp','broad']:
-		raise Exception("please specify a peak type: sharp or broad. Typically, sharp works for TF better and broad for histone modifications.")
+def process_opt(opt):
+    ''' validate the parameters that the user specified'''
+    parameter = Parameters(opt)
 
-	## parse the chip and control filename 
-	chip_filename_list=opt.chip.strip().split(',')
-	control_filename_list=opt.control.strip().split(',')
-	## initialize the data structure
-	opt.read_data = ReadData(chip_filename_list,control_filename_list,opt.species)	
-	#add shift size validations
-	shift_list = opt.shiftSize.split(',')
-	if len(shift_list)!=1:
-		if opt.diff: 
-			if len(shift_list)!=len(opt.read_data.filename_list):
-				raise Exception("invalid size input. Please check out the manual.")
-		else: 
-			if len(shift_list) != len(opt.read_data.chip_filename_list):
-				raise Exception("invalid shift size input. Please check out the manual.")	
+    ## parse the chip and input filename 
+    chip1_filename_list = parameter.chip1.strip().split(',')
+    input1_filename_list = parameter.input1.strip().split(',')
+    chip2_filename_list = parameter.chip2.strip().split(',')
+    input2_filename_list = parameter.input2.strip().split(',')
+    ## initialize the data structure
+    read_data = ReadData(
+        chip1_filename_list, input1_filename_list,
+        chip2_filename_list, input2_filename_list,
+        parameter.difftest 
+        )
+    #add shift size validations
+    return parameter, read_data
