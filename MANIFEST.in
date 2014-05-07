@@ -1,0 +1,3 @@
+include README ChangeLog 
+recursive-include PePr *.py
+recursive-include PePr/data *.bed

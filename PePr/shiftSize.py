@@ -48,12 +48,12 @@ def estimate_shift_size(readData, parameter):
                 chip1_shift_list = [readData.shift_size[chip]
                                     for chip in readData.chip1_filename_list]
                 input1_shift_size = sum(chip1_shift_list)/len(chip1_shift_list)
-                for name in enumerate(readData.input1_filename_list):
+                for name in readData.input1_filename_list:
                     readData.shift_size[name] = input1_shift_size
                 chip2_shift_list = [readData.shift_size[chip]
                                     for chip in readData.chip2_filename_list]
                 input2_shift_size = sum(chip2_shift_list)/len(chip2_shift_list)
-                for name in enumerate(readData.input2_filename_list):
+                for name in readData.input2_filename_list:
                     readData.shift_size[name] = input2_shift_size
             else: 
                 for idx, chip in enumerate(readData.chip1_filename_list):

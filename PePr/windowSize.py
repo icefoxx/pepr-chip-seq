@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-import sys, re, math
-import time
+import sys
+import re
+import math
 import random
 import numpy
 import numpy.lib.stride_tricks as std
+from scipy.stats import rankdata
 import misc
 import logging
 
@@ -19,29 +21,31 @@ def get_window_size2(array, bin=20, iter=100):
     # this is the function that estimate the window size. 
     chr_len = array.size
     rowNum = chr_len/bin
-    array_window = std.as_strided(array, (rowNum, bin), (bin*array.itemsize, 1*array.itemsize))
+    array_window = std.as_strided(array, (rowNum, bin), 
+            (bin*array.itemsize, 1*array.itemsize))
     array_window = numpy.sum(array_window, 1)
     peak_len_list = []
     for x in range(iter):
         peak = numpy.max(array_window)
         peak_idx = numpy.where(array_window == peak)[0][0]
-        array_window[peak_idx]= -1 # set the peak to -1 so that it won't confuse the next iteration.
-
-        
-        if peak_idx == 0:  #check if the window reaches the left boundary 
+        # set the peak to -1 so that it won't confuse the next iteration.
+        array_window[peak_idx]= -1 
+        if peak_idx == 0:  # Check if the window reaches the left boundary.
             left_boundary_not_reached = False
         else:
             left_boundary_not_reached = True    
-        if peak_idx == rowNum-1: #check if the window reaches of the right boundary 
+        # Check if the window reaches of the right boundary.
+        if peak_idx == rowNum-1: 
             right_boundary_not_reached = False
         else: 
             right_boundary_not_reached = True
         i_l = 1
-        i_r = 1 # be careful if anything equals to -1. though it's unlikely that it will happen.
-
+        i_r = 1 
+        # Be careful if anything equals to -1. 
+        # Though it's unlikely that it will happen.
         while left_boundary_not_reached:
 
-            while (array_window[peak_idx-i_l] >= 0.1*peak): # probably subtract background in future
+            while (array_window[peak_idx-i_l] >= 0.1*peak): 
                 array_window[peak_idx-i_l] = -1
                 if peak_idx-i_l==0:
                     left_boundary_not_reached = False
@@ -53,7 +57,9 @@ def get_window_size2(array, bin=20, iter=100):
                     left_boundary_not_reached = False
             
             if left_boundary_not_reached: 
-                if (array_window[peak_idx-i_l-1] >= 0.1*peak): #will continue counting if the next window(one window gap) has above the 20% mode reads. 
+            # Will continue counting if the next window(one window gap) 
+            # has above the 10% mode reads. 
+                if (array_window[peak_idx-i_l-1] >= 0.1*peak): 
                     array_window[peak_idx-i_l] = -1
                     i_l += 1
                 else:
@@ -72,7 +78,7 @@ def get_window_size2(array, bin=20, iter=100):
                     right_boundary_not_reached = False
 
             if right_boundary_not_reached:
-                if (array_window[peak_idx+i_r+1] >=0.1*peak): #will continue counting if the next window(one window gap) has above the 20% mode reads.
+                if (array_window[peak_idx+i_r+1] >=0.1*peak): 
                     array_window[peak_idx+i_r] = -1
                     i_r += 1
                 else:
@@ -95,26 +101,28 @@ def estimate_window_size(readData, parameter):
         reads = []
         for chip_filename in readData.chip_filename_list:
             reads.extend(readData.data_dict[chr][chip_filename])
-        coord_array = numpy.zeros(readData.chr_length_dict[chr], dtype=numpy.int64)
+        coord_array = numpy.zeros(readData.chr_length_dict[chr],
+                dtype=numpy.int64)
         for x in reads:
             try: coord_array[x] += 1
             except IndexError: pass #debug("coordinates out of range")
-#        debug("the length of the %-5s array is %s", chr, coord_array.size)
 
         window = get_window_size2(coord_array)
-        if window >1000: # limit the window size to be less than 1000 bases...
-            window = 1000
+#        if window >1000:  # limit the window size to be less than 1000 bases.
+#            window = 1000
         window_size_list.append(window)
         window_logger.debug("%-10s %s", chr, window)
     debug("length of windowsize list is "+str(len(window_size_list)))
     window_median = misc.median(window_size_list)
-    # window size cannot be odd number since we need to use overlapping half windows. 
+    # Window size cannot be odd number since we need 
+    # to use overlapping half windows. 
     if window_median % 2 == 1:
         window_median = window_median+1
     window_logger.debug("window_size: %+10s", window_median)
     info ( "finishing window size calculation...")
     parameter.window_size = window_median
     return  
+
 
 def count_reads_by_file(read_data, bin, row_num):
     array = numpy.zeros(row_num, dtype=numpy.float64)
@@ -125,7 +133,6 @@ def count_reads_by_file(read_data, bin, row_num):
         error("array has reads less than 0")
     array = array + numpy.roll(array, -1)
     return array
-
 
 
 def separate_exact_by_window(readData, parameter, normalize = "Large"):
@@ -183,8 +190,6 @@ def separate_exact_by_window(readData, parameter, normalize = "Large"):
                         input1_array += array
                 input1_array /= len(readData.input1_filename_list)
                 input1_array.resize(row_num, 1)
-                input1_array = numpy.repeat(
-                        input1_array, len(readData.input1_filename_list), 1)
             chip1_array -= input1_array
             chip1_array[chip1_array<0] = 0
             for idx, filename in enumerate(readData.chip2_filename_list):
@@ -218,8 +223,6 @@ def separate_exact_by_window(readData, parameter, normalize = "Large"):
                         input2_array += array
                 input2_array /= len(readData.input2_filename_list)
                 input2_array.resize(row_num, 1)
-                input2_array = numpy.repeat(
-                        input2_array, len(readData.input2_filename_list), 2)
             chip2_array -= input2_array
             chip2_array[chip2_array<0] = 0
             chr_array = numpy.column_stack((chip1_array, chip2_array))
@@ -256,10 +259,11 @@ def estimate_normalization_constant(readData, parameter):
     for idx, chip in enumerate(readData.chip_filename_list): 
         if idx == 0: 
             mixed_chip_array = array_dict[chip].copy()
+            rep_rank_sum = rankdata(-array_dict[chip])
         else: 
             mixed_chip_array += array_dict[chip]
+            rep_rank_sum += rankdata(-array_dict[chip])
     mixed_chip_array /= len(readData.chip_filename_list)
-
     # Estimate the input normalization constant using NCIS 
     for input in readData.input_filename_list: 
         norm_constant = estimate_input_normalization(
@@ -269,7 +273,7 @@ def estimate_normalization_constant(readData, parameter):
     # Estiamte the chip normalization cosntant using modified TMM method
     for chip in readData.chip_filename_list: 
         norm_constant = estimate_chip_normalization(
-                mixed_chip_array, array_dict[chip])
+                mixed_chip_array, array_dict[chip], rep_rank_sum)
         readData.normalization_constant[chip] = norm_constant
         debug("The scaling factor for %s is %s", chip, norm_constant)
     return
@@ -283,20 +287,20 @@ def estimate_input_normalization(ref, target):
         index = numpy.where(combined <= r_cut)[0]
         percent_genome_covered = float(len(index))/len(combined)
         ratio = numpy.sum(ref[index])/numpy.sum(target[index])
-#	print percent_genome_covered, ratio
         if percent_genome_covered > MIN_GENOME_COVERAGE and ratio > pre_ratio:
             return ratio
         else: 
             pre_ratio = ratio
     return ratio
 
-def estimate_chip_normalization(ref, target): 
+def estimate_chip_normalization(ref, target, rep_rank_sum): 
     '''Estimate the ChIP normalization constant against the mixed ChIP
        using the modified TMM method'''
     N_PEAKS_GRID = numpy.array([1000, 5000, 10000, 20000, 30000, 40000, 50000])
     TRIM_M = 0.2
     TRIM_A = 0.05
-    order = numpy.argsort(-ref)
+    order = numpy.argsort(rep_rank_sum)
+#    order = numpy.argsort(-ref)
     len_target_not_zero = len(numpy.where(target > 0)[0])
     ref = ref[order]
     target = target[order]
@@ -327,6 +331,7 @@ def estimate_chip_normalization(ref, target):
         Wgk = 0.5*numpy.log2(ref_trim*target_trim)
         tmm = 2**(numpy.sum(Mgk*Wgk)/numpy.sum(Wgk))
         tmm_array = numpy.append(tmm_array, tmm)
+        debug("The TMM estiamted from top %s windows is %s", n, tmm)
     library_ratio = numpy.sum(ref)/numpy.sum(target)
     tmm_diff_array = numpy.abs(tmm_array - library_ratio)
     tmm_max = tmm_array[numpy.argmax(tmm_diff_array)]

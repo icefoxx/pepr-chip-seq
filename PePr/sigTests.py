@@ -4,7 +4,6 @@ import numpy
 import logging
 from classDef import Peak
 from scipy.special import psi
-from scipy.optimize import fsolve
 from scipy.stats.distributions import norm
 from operator import attrgetter
 
@@ -24,47 +23,50 @@ def get_candidate_window2(read, x, y, repx, repy, threshold):
     return numpy.array(pre_idx_list)
 
 
-def weighted_log_likelihood(v_hat, m, n, reads):
+def weighted_log_likelihood(v_hat, m, n, reads, diff_test):
     '''This function returns the derivative of the log likelihood
        of current and adjacent windows using a triangular weight.'''
     equation = 0
     n_window = len(reads)
+    baseline = numpy.mean(reads[n_window/2,0:m])
     for idx in range(n_window):
         x = reads[idx, 0:m]  # x/m refer the test sample
         y = reads[idx, m:(m+n)]  # y/n refer to the control sample
-        u_hat = numpy.mean(x)
-        r_hat = numpy.mean(y)/u_hat
-        log_likelihood = (-(m+n)*psi(v_hat) + numpy.sum(psi(v_hat+x)) + 
-                numpy.sum(psi(v_hat+y)) + 
-                m*numpy.log(v_hat/(v_hat+numpy.mean(x))) + 
-                n*numpy.log(v_hat/(v_hat+numpy.mean(y))))
+        weight_x = numpy.mean(x)/baseline
+        weight_y = numpy.mean(y)/baseline
+        if n == 1: 
+            weight_y = 0
+        log_likelihood = (-(m*weight_x+n*weight_y)*psi(v_hat) +
+                numpy.sum(psi(v_hat+x))*weight_x + 
+                numpy.sum(psi(v_hat+y))*weight_y + 
+                m*numpy.log(v_hat/(v_hat+numpy.mean(x)))*weight_x + 
+                n*numpy.log(v_hat/(v_hat+numpy.mean(y)))*weight_y)
         equation = (equation + 
                 log_likelihood*(1-(abs(n_window/2-idx)/(n_window/2+1))))
     return equation
 
 
-def estimate_area_dispersion_factor(read, m, n, idx, peaktype):
+def estimate_area_dispersion_factor(read, m, n, idx, peaktype, diff_test):
     '''This function implements a simple method to find the root
        of the derivative of the log likelihood.'''
     BASE = 10
     N_ITERATION = 15
     if peaktype == "sharp":
-        N_WINDOWS = 0
+        N_WINDOWS = 1 
     elif peaktype  == "broad":
         N_WINDOWS = 10
-
     left = -1.0
     right = 6.0
     if weighted_log_likelihood(BASE**right, m, n, 
-            read[(idx-N_WINDOWS):(idx+N_WINDOWS+1)]) > 0:
+            read[(idx-N_WINDOWS):(idx+N_WINDOWS+1)], diff_test) > 0:
         return BASE**right
     elif weighted_log_likelihood(BASE**left, m, n,
-            read[(idx-N_WINDOWS):(idx+N_WINDOWS+1)]) < 0:
+            read[(idx-N_WINDOWS):(idx+N_WINDOWS+1)], diff_test) < 0:
         return BASE**left
     for times in xrange(N_ITERATION):
         temp = (right+left)/2
         if weighted_log_likelihood(10**temp, m, n,
-                read[(idx-N_WINDOWS):(idx+N_WINDOWS+1)]) > 0:
+                read[(idx-N_WINDOWS):(idx+N_WINDOWS+1)], diff_test) > 0:
             left = temp
         else:
             right = temp
@@ -77,11 +79,12 @@ def cal_FDR(peak_list, num_tests):
     #calculate BH q-values
     q_list = [item.pvalue*num_tests/(idx+1) 
             for idx, item in enumerate(peak_list)]
-    
-    for i in range(len(q_list)):
-        for j in range(i):
-            if q_list[j] > q_list[i]:
-                q_list[j]=q_list[i]
+    q_min = q_list[-1]
+    for i in xrange(len(q_list)-1, -1, -1):
+        if q_list[i] >= q_min:
+            q_list[i] = q_min
+        else:
+            q_min = q_list[i]
     for i in range(len(q_list)):
         peak_list[i] = Peak(peak_list[i].chr, peak_list[i].index,
                             peak_list[i].pvalue, q_list[i])
@@ -141,10 +144,12 @@ def negative_binomial(readData, peakfilename, swap, parameter):
         debug("there are %d candidate windows for %s", len(cand_index), chr)
         if not swap: 
             disp_list = numpy.array([estimate_area_dispersion_factor(read_array, 
-                    test_rep, control_rep, idx, peaktype) for idx in cand_index])
+                    test_rep, control_rep, idx, peaktype, parameter.difftest)
+                    for idx in cand_index])
         else: 
             disp_list = numpy.array([estimate_area_dispersion_factor(read_array,
-                    control_rep, test_rep, idx, peaktype) for idx in cand_index])
+                    control_rep, test_rep, idx, peaktype, parameter.difftest)
+                    for idx in cand_index])
         debug("finished estimating dispersion for %s", chr)
         cand_x_bar_array = x_bar_array[cand_index]
         cand_y_bar_array = y_bar_array[cand_index]
@@ -158,6 +163,11 @@ def negative_binomial(readData, peakfilename, swap, parameter):
         z_score_array = ((numpy.log(gamma_array)-numpy.log(gamma_hat))* 
                 gamma_array/tau_hat_array)
         pval_array = norm.cdf(-z_score_array)
+        # record results for potential windows
+#        window_out = open(chr+"candidate.out",'w')
+#        for i in range(len(cand_index)):
+#            window_out.write(chr+'\t'+str(cand_index[i])+'\t'+str(disp_list[i])+'\t'+str(pval_array[i])+'\n')
+#        window_out.close()
         # Record the indices of the windows that have p-value smaller
         # than the threshold. 
         test_index = numpy.where(pval_array<threshold)  
@@ -195,7 +205,9 @@ def negative_binomial(readData, peakfilename, swap, parameter):
     # post-processing 
     if remove_artefacts is True: 
          dump_file = open(peakfilename[:-10]+"_filtered_peaks.txt","w")
-
+         dump_file.write("chr\tstart\tend\twidth\tp-value\tq-value\t")
+         dump_file.write("chip_input_ratio\ttag_monopoly\t")
+         dump_file.write("strand_overlap_original\tstrand_overlap_shifted")
     info("begin post-processing...")
     for final_peak in final_peak_list: 
         chr = final_peak[0]
@@ -211,16 +223,19 @@ def negative_binomial(readData, peakfilename, swap, parameter):
             chip_list = readData.chip2_filename_list
             input_list = readData.input2_filename_list
         if narrow_peak or remove_artefacts: 
-            start, end, chip_input_ratio, tag_monopoly = \
-                    post_processing_per_peak(strands_dict, chip_list, 
-                    input_list, chr, start, end, readData.shift_size, 
-                    readData.read_length, narrow_peak, remove_artefacts)
+            (start, end, chip_input_ratio, tag_monopoly, overlap_orig, 
+             overlap_roll) = post_processing_per_peak(
+                    strands_dict, chip_list, input_list, chr, start, end,
+                    readData.shift_size, readData.read_length,
+                    narrow_peak, remove_artefacts)
             if remove_artefacts and (chip_input_ratio > 0.5 or 
-                    tag_monopoly > 0.5):
+                    tag_monopoly > 0.5 or (overlap_orig > 0.2 and
+                overlap_roll/overlap_orig < 0.5)):
                 dump_file.write(chr+"\t" + str(start) + '\t' + str(end) + '\t' +
                         str(end-start) + '\t' + str(pval) + '\t' + str(qval) + 
                         '\t' + str(chip_input_ratio) + '\t' + 
-                        str(tag_monopoly) + '\n')
+                        str(tag_monopoly) + '\t' + str(overlap_orig) +
+                        '\t' + str(overlap_roll) + '\n')
                 continue
         peakfile.write(chr + "\t" + str(start) + '\t' + str(end) + '\t' + 
                 str(end-start) + '\t' + str(pval) + '\t' + str(qval) + '\n')
@@ -276,7 +291,7 @@ def merge_sig_window(index_list, pval_list, qval_list, peaktype):
 
 
 def post_processing_per_peak(strands_dict, chip_list, input_list, chr,
-                             start, end, shiftSize,readLength,narrow_peak,
+                             start, end, shiftSize, readLength, narrow_peak,
                              remove_artefacts):
     ''' Remove artefacts and refine peak width.'''
     chip_forward = numpy.zeros(end-start)
@@ -315,7 +330,10 @@ def post_processing_per_peak(strands_dict, chip_list, input_list, chr,
 
         chip_both = chip_forward + chip_reverse
         input_both = input_forward + input_reverse
-        chip_both = chip_both/sum(chip_both)
+        if sum(chip_both) == 0:
+            pass
+        else:
+            chip_both = chip_both/sum(chip_both)
         if sum(input_both) ==0:
             pass
         else:
@@ -323,9 +341,20 @@ def post_processing_per_peak(strands_dict, chip_list, input_list, chr,
         overlap_chip_input = numpy.sum(numpy.minimum(chip_both, input_both))
         chip_both.sort()
         chip_3_maximum = numpy.sum(chip_both[-3:])
+        if sum(chip_reverse) != 0:
+            chip_reverse = chip_reverse/sum(chip_reverse) 
+        chip_forward_roll = numpy.roll(chip_forward,readLength)
+        if sum(chip_forward) != 0:
+            chip_forward = chip_forward/sum(chip_forward)
+            chip_forward_roll = chip_forward_roll/sum(chip_forward)
+        overlap_orig = numpy.sum(numpy.minimum(chip_forward, chip_reverse))
+        overlap_orig = numpy.max([overlap_orig, 1e-5])
+        overlap_roll = numpy.sum(numpy.minimum(chip_forward_roll, chip_reverse))
     else: 
         overlap_chip_input = 0
         chip_3_maximum = 0 
+        overlap_orig = 1e-5
+        overlap_roll = 0
 
     if narrow_peak is True:
         sum_forward = 0
@@ -351,11 +380,14 @@ def post_processing_per_peak(strands_dict, chip_list, input_list, chr,
         start = new_start
         end = new_end
 
-    return start, end, overlap_chip_input, chip_3_maximum
+    return (start, end, overlap_chip_input, chip_3_maximum, 
+            overlap_orig, overlap_roll)
 
 
 def shift_size_per_peak(strands_dict, chip_list, chr, start, end,
                         shiftSize, readLength, narrow_peak):
+    '''Deprecated function. Used to estimate the shift size of 
+       peak'''
     shift_list = []
     start_list = []
     end_list = []
@@ -410,19 +442,3 @@ def shift_size_per_peak(strands_dict, chip_list, chr, start, end,
             return min(start_list), max(end_list), shift_list, fold
     else:
         return start, end, shift_list, fold
-
-
-def validate_shift_size(list, readLength):
-    '''if the shift size is smaller than the readlength + 5,
-       then the peak will be removed. '''
-    list_len = len(list)
-    short_len =0
-    for shift in list:
-        if shift <=readLength+5:
-            short_len = short_len+1
-
-    if short_len > list_len/2:
-        return 0
-    else:
-        return 1
-

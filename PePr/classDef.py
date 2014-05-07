@@ -188,12 +188,12 @@ class Parameters:
 
         if self.difftest is True: 
             if len(self.chip1.strip().split(',')) == \
-                    len(self.chip1.strip().split(',')):
+                    len(self.input1.strip().split(',')):
                 self.chip1_matched_input = True
             else: 
                 self.chip1_matched_input = False
             if len(self.chip2.strip().split(',')) == \
-                    len(self.chip2.strip().split(',')):
+                    len(self.input2.strip().split(',')):
                 self.chip2_matched_input = True
             else: 
                 self.chip2_matched_input = False
