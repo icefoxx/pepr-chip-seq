@@ -1,0 +1,3 @@
+# Methods #
+
+PePr manuscript was published at Oxford|Bioinformatics. The detailed method descriptions are in the supplementary material of our manuscript (which may be subjected to the copyright rule. We'll figure out how to present it later...
